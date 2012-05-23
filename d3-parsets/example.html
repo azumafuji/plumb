@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Plumb</title>
+<style>
+    @import url(../css/d3.parsets.css);
+</style>
+
+<body>
+
+<div id="vis">
+    <noscript><img src="parsets.png"></noscript>
+</div>
+<div class="options">
+    <span class="source">Data: <a href="http://api.lillycoi.com/v1/trials/">http://api.lillycoi.com/v1/trials/</a> | Lilly COI Trials</span>
+    <span class="curves"><label for="curved"><input type="checkbox" id="curved" onchange="curves.call(this)">
+        Curves?</label></span>
+</div>
+
+</body>
+
+<script src="../js/d3.v2.js"></script>
+<script src="../js/d3.parsets.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+<script src="parclin.js"></script>
+<script>
+
+    var data_url = "http://api.lillycoi.com/v1/trials?fields=id,phase,study_type,overall_status,condition&limit=400&offset=400"
+
+    var chart = d3.parsets()
+            .dimensions(["study_type", "overall_status", "phase" ]);
+
+    var vis = d3.select("#vis").append("svg")
+            .attr("width", chart.width())
+            .attr("height", chart.height());
+
+    var partition = d3.layout.partition()
+            .sort(null)
+            .size([chart.width(), chart.height() * 5 / 4])
+            .children(function (d) {
+                return d.children ? d3.values(d.children) : null;
+            })
+            .value(function (d) {
+                return d.count;
+            });
+
+    var ice = false;
+
+    function curves() {
+        var t = vis.transition().duration(500);
+        if (ice) {
+            t.delay(1000);
+            icicle();
+        }
+        t.call(chart.tension(this.checked ? .6 : 1));
+    }
+
+    $.get(data_url,
+            function (data) {
+
+                $(data.results).each(function (i, d) {
+                    d.condition = d.condition[0]
+                });
+                vis.datum(data.results).call(chart);
+                vis.selectAll("path").on("click", display_subset(i, d));
+            }, 'jsonp');
+
+
+    function display_subset(i) {
+        var params = create_q(i);
+
+        console.log(params);
+
+    }
+
+    var PhaseMapping = {};
+    PhaseMapping['Phase 0'] = "\"Phase 0\" [PHASE]";
+    PhaseMapping['Phase 1'] = "\"Phase 1\" [PHASE]";
+    PhaseMapping['Phase 2'] = "\"Phase 2\" [PHASE]";
+    PhaseMapping['Phase 3'] = "\"Phase 3\" [PHASE]";
+    PhaseMapping['Phase 4'] = "\"Phase 4\" [PHASE]";
+    PhaseMapping['Phase 1/Phase 2'] = "(\"Phase 1\" AND \"Phase 2\") [PHASE]";
+    PhaseMapping['Phase 2/Phase 3'] = "(\"Phase 2\" AND \"Phase 3\") [PHASE]";
+    PhaseMapping['N/A'] = "NOTEXT [PHASE]";
+
+
+    function create_q(i) {
+        var v = new Array();
+        var a = new Array();
+        v[1] = i.dimension
+        a[1] = i.name
+        var qs = 2
+
+        var parent = i.parent
+        while (parent.dimension) {
+            v[qs] = parent.dimension;
+            a[qs] = parent.name;
+            parent = parent.parent;
+            qs++;
+        }
+        return [v, a]
+
+    }
+
+    function display_results(q) {
+
+    }
+
+
+</script>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta charset="utf-8">
+    <title>Plumb | Trial Data Explorer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <!-- Le styles -->
+    <link href="css/bootstrap.css" rel="stylesheet">
+    <link href="css/d3.parsets.css" rel="stylesheet">
+    <link href="css/plumb.css" rel="stylesheet">
+    <style type="text/css">
+        body {
+            padding-top: 60px;
+            padding-bottom: 40px;
+        }
+
+        .sidebar-nav {
+            padding: 9px 0;
+        }
+    </style>
+    <link href="css/responsive.css" rel="stylesheet">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+    <script type="text/javascript" src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le fav and touch icons -->
+    <link rel="shortcut icon" href="/ico/favicon.ico">
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/ico/apple-touch-icon-144-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="/ico/apple-touch-icon-114-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="/ico/apple-touch-icon-72-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" href="/ico/apple-touch-icon-57-precomposed.png">
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+    <div class="navbar-inner">
+        <div class="container-fluid">
+            <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </a>
+            <a class="brand" href="#">Plumb</a>
+
+            <div class="nav-collapse">
+                <ul class="nav">
+                    <li class="active"><a href="#">Home</a></li>
+                    <li><a href="#about">About</a></li>
+                </ul>
+            </div>
+            <!--/.nav-collapse -->
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row-fluid">
+        <div class="span3">
+            <form class="well">
+                <fieldset>
+                    <div class="control-group">
+                        <label class="control-label" for="optionsCheckbox1">Facets</label>
+
+                        <div class="controls">
+                            <label class="checkbox">
+                                <input type="checkbox" id="optionsCheckbox1" value="option1">
+                                Option one is this and that—be sure to include why it's great
+                            </label>
+                        </div>
+                        <div class="controls">
+                            <label class="checkbox">
+                                <input type="checkbox" id="optionsCheckbox2" value="option1">
+                                Option one is this and that—be sure to include why it's great
+                            </label>
+                        </div>
+                        <div class="controls">
+                            <label class="checkbox">
+                                <input type="checkbox" id="optionsCheckbox3" value="option1">
+                                Option one is this and that—be sure to include why it's great
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Apply</button>
+                        <button class="btn">Cancel</button>
+                    </div>
+                </fieldset>
+            </form>
+            <!--/.well -->
+        </div>
+        <!--/span-->
+        <div class="span9">
+            <div class="row-fluid">
+                <form class="well form-inline" id="refine_form">
+                    <input type="text" class="input-large search-query" id="search_input">
+                    <button type="submit" class="btn" id="refine_button">Refine</button>
+                    <span class="right" style="float: right;">
+                        <label class="checkbox">
+                            <input type="checkbox" id="curved" onchange="curves.call(this)"> Curves?
+                        </label>
+                        <label class="checkbox">
+                            <input type="checkbox" id="icicle" onchange="icicles.call(this)"> Icicles?
+                        </label>
+                    </span>
+                </form>
+            </div>
+            <div class="row-fluid">
+
+                <div class="span12">
+                    <div id="vis">
+                        <noscript><img src="img/parsets.png"></noscript>
+                    </div>
+
+                </div>
+            </div>
+            <!--/row-->
+            <div class="row-fluid">
+                <div class="span12">
+                    <table class="table table-striped" id="detail_table">
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Phase</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td>Mark</td>
+                            <td>Otto</td>
+                            <td>@mdo</td>
+                            <td>@mdo</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!--/row-->
+        </div>
+        <!--/span-->
+    </div>
+    <!--/row-->
+
+    <a name="about"></a>
+
+    <div class="row-fluid">
+        <div class="span3"></div>
+        <div class="span9">
+            <h2>About</h2>
+
+            <p>Plumb is based on <a href="http://d3js.org/">D3</a> by Michael Bostock, and
+                <a href="https://github.com/jasondavies/d3-parsets">D3 Parallel Sets</a> by Jason Davies. It
+                also uses <a href="http://twitter.github.com/bootstrap/index.html">Twitter Bootstrap</a> and
+                <a href="http://jquery.com/">JQuery</a>. Data is provided by <a href="http://portal.lillycoi.com/">
+                    Lilly COI</a> via their <a href="http://api.lillycoi.com/v1">API</a>.
+            </p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; Dean 2012</p>
+    </footer>
+
+</div>
+<!--/.fluid-container-->
+
+<!-- Le javascript
+================================================== -->
+<!-- Placed at the end of the document so the pages load faster -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js" type="text/javascript"></script>
+<script src="js/bootstrap-alert.js"></script>
+<script src="js/bootstrap-modal.js"></script>
+<script src="js/bootstrap-dropdown.js"></script>
+<script src="js/bootstrap-scrollspy.js"></script>
+<script src="js/bootstrap-tab.js"></script>
+<script src="js/bootstrap-tooltip.js"></script>
+<script src="js/bootstrap-popover.js"></script>
+<script src="js/bootstrap-button.js"></script>
+<script src="js/bootstrap-collapse.js"></script>
+<script src="js/bootstrap-carousel.js"></script>
+<script src="js/bootstrap-typeahead.js"></script>
+<script src="js/d3.v2.js"></script>
+<script src="js/d3.parsets.js"></script>
+<script src="js/jquery.dataTables.js"></script>
+<script src="js/fnReloadAjax.js"></script>
+<script src="js/paging.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>

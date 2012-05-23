@@ -1,0 +1,15 @@
+#ignore mercurial files
+.hg
+.hgignore
+
+#ignore PyCharm files
+.idea
+
+#ignore OS X files
+.DS_Store
+
+#ignore any log files that are generated
+*.log
+logs/
+
+
