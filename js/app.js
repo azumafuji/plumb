@@ -1,46 +1,113 @@
+
+var default_dimensions = ["study_type", "overall_status", "phase" ];
+var current_dimensions = ["study_type", "overall_status", "phase" ];
+
 var chart = d3.parsets()
-    .dimensions(["study_type", "overall_status", "phase" ]);
+    .dimensions(default_dimensions);
 
 var vis = d3.select("#vis").append("svg")
     .attr("width", chart.width())
     .attr("height", chart.height());
 
-var partition = d3.layout.partition()
-    .sort(null)
-    .size([chart.width(), chart.height() * 5 / 4])
-    .children(function (d) {
-        return d.children ? d3.values(d.children) : null;
-    })
-    .value(function (d) {
-        return d.count;
-    });
 
+var meshtree_data = {};
+var stopped_data = {};
 var parset_data = new Array();
 var ice = false;
 
+
 // Initial URls
 var base_url = "http://api.lillycoi.com/v1/trials/search?";
-var data_fields = "fields=phase,study_type,overall_status,condition";
+var data_fields = "fields=phase,study_type,overall_status,eligibility,condition,intervention_browse,condition_browse,has_expanded_access,is_fda_regulated,is_section_801";
 var table_fields = "fields=id,phase,study_type,overall_status,brief_title";
 var default_search = "tuberculosis";
-var data_query = "&query=count:9999,show_xprt:Y,xprt:" + default_search + "+%5BALL-FIELDS%5D";
+var data_query = "&query=show_xprt:Y,xprt:" + default_search + "+%5BALL-FIELDS%5D,count:999999";
 var data_url = base_url + data_fields + data_query;
 var table_url = base_url + table_fields + data_query;
 var data_table = Object();
 
 $(document).ready(function () {
 
-    load_results();
+    load_mesh();
+    load_stopped(true);
     $("#search_input").val(default_search);
+    reset_dimensions();
+    load_results();
     update_datatable();
 
-    var form = $("#refine_form");
+    var form = $("#search_form");
     form.submit(function(e) {
         e.preventDefault();
-        refine();
+        search_ctgov();
+    });
+
+    var form = $("#facet_form");
+    form.submit(function(e) {
+        e.preventDefault();
+        update_dimensions();
     });
 
 });
+
+function reset_dimensions(){
+    $('.facet_check').each(function(){
+        if($.inArray($(this).val(),current_dimensions) >= 0){
+            $(this).attr('checked', true);
+        } else {
+            $(this).attr('checked', false);
+        }
+    });
+}
+
+function update_dimensions(){
+    var new_dimensions = [];
+    $('.facet_check:checked').each(function(){
+       new_dimensions.push($(this).val());
+    });
+    current_dimensions = new_dimensions;
+    console.log(current_dimensions);
+
+    $('#vis').slideUp(500);
+    $('svg').remove();
+
+    chart = d3.parsets()
+        .dimensions(current_dimensions);
+
+    vis = d3.select("#vis").append("svg")
+        .attr("width", chart.width())
+        .attr("height", chart.height());
+
+    load_results();
+
+    $('#vis').slideDown(500);
+
+}
+
+function load_stopped(cached) {
+    if (cached){
+        url = 'js/data-stopped.json';
+    } else {
+        url = 'http://ec2-50-18-235-6.us-west-1.compute.amazonaws.com:8080/trials/stopped';
+    }
+
+    $.getJSON(url, function(data) {
+        stopped_data = data;
+    },'jsonp');
+}
+
+function load_mesh() {
+    $.getJSON('js/data-meshtree.json', function(data) {
+        meshtree_data = data;
+    },'jsonp');
+}
+
+function mesh_lookup(term) {
+    lookup = meshtree_data[term.toLowerCase()];
+    if(!lookup) {
+        lookup = 'N/A';
+    }
+    return lookup;
+}
 
 function update_datatable(){
     data_table = $('#detail_table').dataTable({
@@ -72,14 +139,14 @@ function limit_option(limit) {
     return "&limit=" + limit;
 }
 
-function create_q(i) {
+function create_q(d) {
     var v = new Array();
     var a = new Array();
-    v[1] = i.dimension
-    a[1] = i.name
+    v[1] = d.dimension
+    a[1] = d.name
     var qs = 2
 
-    var parent = i.parent
+    var parent = d.parent
     while (parent.dimension) {
         v[qs] = parent.dimension;
         a[qs] = parent.name;
@@ -90,26 +157,72 @@ function create_q(i) {
 
 }
 
+function create_cat_q(d){
+    var v = new Array();
+    var a = new Array();
+    v[1] = d.dimension.name
+    a[1] = d.name
+
+    return [v, a]
+}
+
+function create_ctgov_q(params){
+    for(i=0;i<len(params[0]);i++){
+
+    }
+}
+
 function display_subset(d, i) {
     var params = create_q(d);
     console.log(params);
+}
+
+function display_category(d, i) {
+    var params = create_cat_q(d);
+    console.log(params);
+
 }
 
 function load_results() {
     console.log(data_url)
     $.get(data_url,
         function (data) {
+            for(var i=0;i<data.results.length;i++) {
+                try {
+                    var intervention = mesh_lookup(data.results[i].intervention_browse.mesh_term[0]);
+                } catch(err) {
+                    var intervention = "N/A";
+                }
+                try {
+                    var condition = mesh_lookup(data.results[i].condition_browse.mesh_term[0]);
+                } catch(err) {
+                    var condition = "N/A"
+                }
+                try {
+                    var eligibility_gender = data.results[i].eligibility.gender;
+                } catch(err) {
+                    var eligibility_gender = 'N/A'
+                }
+
+                data.results[i].intervention = intervention;
+                data.results[i].condition = condition;
+                data.results[i].eligibility_gender = eligibility_gender;
+            }
+
             parset_data = data.results;
-            vis.datum(data.results).call(chart);
+            vis.datum(parset_data).call(chart);
             vis.selectAll("path").on("click", function (d, i) {
                 display_subset(d, i)
+            });
+            vis.selectAll("g.category").on("click", function (d, i) {
+                    display_category(d, i)
             });
         }, 'jsonp');
 }
 
-function refine() {
+function search_ctgov() {
     var new_search = $("#search_input").val();
-    data_query = "&query=count:9999,show_xprt:Y,xprt:" + new_search + "+%5BALL-FIELDS%5D";
+    data_query = "&query=show_xprt:Y,xprt:" + new_search + "+%5BALL-FIELDS%5D,count:999999";
     data_url = base_url + data_fields + data_query;
     table_url = base_url + table_fields + data_query;
 
@@ -125,6 +238,17 @@ function curves() {
     }
     t.call(chart.tension(this.checked ? .5 : 1));
 }
+
+var partition = d3.layout.partition()
+    .sort(null)
+    .size([chart.width(), chart.height() * 5 / 4])
+    .children(function (d) {
+        return d.children ? d3.values(d.children) : null;
+    })
+    .value(function (d) {
+        return d.count;
+    });
+
 
 function icicles() {
     var newIce = this.checked,
