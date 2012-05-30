@@ -12,7 +12,12 @@ div.dataTables_filter label {
 }
 
 div.dataTables_info {
-    padding-top: 8px;
+    text-align: center;
+}
+
+div.DTTT_container {
+    text-align: center;
+
 }
 
 div.dataTables_paginate {
@@ -56,4 +61,12 @@ table.table thead .sorting_desc_disabled {
 
 table.dataTable th:active {
     outline: none;
+}
+
+ul.filter_list {
+    margin: 0 0 9px 15px;
+}
+
+li.filter_item {
+    font-size: 10px;
 }

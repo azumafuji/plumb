@@ -2,37 +2,95 @@
 var default_dimensions = ["study_type", "overall_status", "phase" ];
 var current_dimensions = ["study_type", "overall_status", "phase" ];
 
-var chart = d3.parsets()
-    .dimensions(default_dimensions);
+var min_height = 400
+
+function chart_height(){
+    var td = current_dimensions.length-1;
+    if(min_height/td < 150) {
+        return 150*td;
+    } else {
+        return min_height;
+    }
+
+}
+
+function chart_width(){
+    return 780;
+}
+
 
 var vis = d3.select("#vis").append("svg")
-    .attr("width", chart.width())
-    .attr("height", chart.height());
+    .attr("width", chart_width())
+    .attr("height", chart_height());
+
+var chart = d3.parsets()
+    .dimensions(default_dimensions)
+    .tension(0.5)
+    .on("sortDimensions", function(){reset_paths();})
+    .on("sortCategories", function(){reset_paths();})
+    .width(chart_width())
+    .height(chart_height());
 
 
 var meshtree_data = {};
 var stopped_data = {};
 var parset_data = new Array();
 var ice = false;
-
+var search_results_count = 0;
+var filter_set = [[],[]];
 
 // Initial URls
 var base_url = "http://api.lillycoi.com/v1/trials/search?";
-var data_fields = "fields=phase,study_type,overall_status,eligibility,condition,intervention_browse,condition_browse,has_expanded_access,is_fda_regulated,is_section_801";
-var table_fields = "fields=id,phase,study_type,overall_status,brief_title";
-var default_search = "tuberculosis";
-var data_query = "&query=show_xprt:Y,xprt:" + default_search + "+%5BALL-FIELDS%5D,count:999999";
+var data_fields = "fields=id,phase,brief_title,study_type,overall_status,eligibility,sponsors,condition,intervention_browse,condition_browse,has_expanded_access,is_fda_regulated,is_section_801";
+var default_term = "\"tuberculosis\"";
+var current_term = default_term;
+var current_search = default_term + " [ALL-FIELDS]";
+var data_query = "&query=count:999999,show_xprt:Y,xprt:" + current_search;
 var data_url = base_url + data_fields + data_query;
-var table_url = base_url + table_fields + data_query;
 var data_table = Object();
+
+// Filtering Logic
+$.fn.dataTableExt.afnFiltering.push(
+    function( oSettings, aData, iDataIndex ) {
+        var colIdx = new Array();
+        colIdx["id"] = 0;
+        colIdx["brief_title"] = 1;
+        colIdx["study_type"] = 2;
+        colIdx["overall_status"] = 3;
+        colIdx["phase"] = 4;
+        colIdx["gender"] = 5;
+        colIdx["lead_agency_type"] = 6;
+        colIdx["condition"] = 7;
+        colIdx["intervention"] = 8;
+        colIdx["why_stopped"] = 9;
+
+        var return_row = true;
+
+        for(i=0;i<filter_set[0].length;i++){
+            var col = filter_set[0][i];
+            var col_val = filter_set[1][i];
+            var col_int = colIdx[col];
+
+
+            if(col_int > 0){
+                var data_val = aData[col_int];
+                if(data_val != col_val){
+                    return_row = false;
+                }
+            }
+
+        }
+
+        return return_row;
+    });
 
 $(document).ready(function () {
 
     load_mesh();
     load_stopped(true);
-    $("#search_input").val(default_search);
+    $("#search_input").val(default_term);
     reset_dimensions();
-    load_results();
+    display_filters();
     update_datatable();
 
     var form = $("#search_form");
@@ -59,6 +117,31 @@ function reset_dimensions(){
     });
 }
 
+function reset_filters(){
+    filter_set = [[],[]];
+    display_filters();
+    data_table.fnDraw();
+
+}
+
+function display_filters(){
+    $(".filter_item").remove();
+    if(filter_set[0].length > 0){
+        for(i=0;i<filter_set[0].length;i++){
+            var col = filter_set[0][i];
+            var col_val = filter_set[1][i];
+            if(col){
+                $("#filter_list").append("<li class='filter_item'>" + col + ": <strong>" + col_val + "</strong></li>");
+            }
+        }
+
+    } else {
+        $("#filter_list").append("<li class='filter_item'>None</li>");
+
+    }
+
+}
+
 function update_dimensions(){
     var new_dimensions = [];
     $('.facet_check:checked').each(function(){
@@ -68,10 +151,15 @@ function update_dimensions(){
     console.log(current_dimensions);
 
     $('#vis').slideUp(500);
-    $('svg').remove();
+    $('svg').fadeOut(300, function(){ $(this).remove();});
 
     chart = d3.parsets()
-        .dimensions(current_dimensions);
+        .dimensions(current_dimensions)
+        .width(chart_width())
+        .on("sortDimensions", reset_paths())
+        .on("sortCategories", reset_paths())
+        .tension(0.6)
+        .height(chart_height());
 
     vis = d3.select("#vis").append("svg")
         .attr("width", chart.width())
@@ -79,7 +167,7 @@ function update_dimensions(){
 
     load_results();
 
-    $('#vis').slideDown(500);
+    $('#vis').slideDown(1000);
 
 }
 
@@ -91,7 +179,10 @@ function load_stopped(cached) {
     }
 
     $.getJSON(url, function(data) {
-        stopped_data = data;
+        for(i=0;i<data.length;i++){
+
+            stopped_data[data[i].id] = data[i]["why_stopped_classification"]["best-category"];
+        }
     },'jsonp');
 }
 
@@ -111,29 +202,43 @@ function mesh_lookup(term) {
 
 function update_datatable(){
     data_table = $('#detail_table').dataTable({
-            "sDom":"<'row-fluid'<'span6'l><'span6'f>r>t<'row-fluid'<'span6'i><'span6'p>>",
+            "sDom":"<'row'<'span3'l><'span5'iT><'span4'f>r>t<'row'<'span12'p>",
             "sPaginationType":"bootstrap",
             "bProcessing": true,
-            "sAjaxSource": table_url,
+            "sAjaxSource": data_url,
             "sAjaxDataProp": "results",
+
             "aoColumns": [
                 { "mDataProp": "id", "sWidth": "10%" },
-                { "mDataProp": "brief_title", "sWidth": "50%" },
-                { "mDataProp": "phase", "sWidth": "10%" },
-                { "mDataProp": "study_type", "sWidth": "15%"},
-                { "mDataProp": "overall_status", "sWidth": "15%"}
+                { "mDataProp": "brief_title", "sWidth": "10%" },
+                { "mDataProp": "study_type", "sWidth": "10%" },
+                { "mDataProp": "overall_status", "sWidth": "10%"},
+                { "mDataProp": "phase", "sWidth": "10%"},
+                { "mDataProp": "gender", "sWidth": "10%" },
+                { "mDataProp": "lead_agency_type", "sWidth": "10%" },
+                { "mDataProp": "condition", "sWidth": "10%" },
+                { "mDataProp": "intervention", "sWidth": "10%"},
+                { "mDataProp": "why_stopped", "sWidth": "10%"}
             ],
+            "sSwfPath": "/swf/copy_csv_xls_pdf.swf",
             "fnServerData": function( sUrl, aoData, fnCallback, oSettings ) {
                 oSettings.jqXHR = $.ajax( {
                     "url": sUrl,
                     "data": "results",
-                    "success": fnCallback,
+                    "success": function(data) {
+                        clean_api_data(data);
+                        fnCallback(data);
+                    },
                     "dataType": "jsonp",
                     "cache": false
                 } ); }
         }
     );
+    new FixedHeader( data_table, { "offsetTop": 40 });
+
 }
+
+
 
 function limit_option(limit) {
     return "&limit=" + limit;
@@ -166,68 +271,82 @@ function create_cat_q(d){
     return [v, a]
 }
 
-function create_ctgov_q(params){
-    for(i=0;i<len(params[0]);i++){
-
-    }
-}
 
 function display_subset(d, i) {
-    var params = create_q(d);
-    console.log(params);
+    filter_set = create_q(d);
+    display_filters();
+    data_table.fnDraw();
 }
 
 function display_category(d, i) {
-    var params = create_cat_q(d);
-    console.log(params);
+    filter_set = create_cat_q(d);
+    display_filters();
+    data_table.fnDraw();
+}
+
+
+function clean_api_data(data){
+    for(var i=0;i<data.results.length;i++) {
+        try {
+            var intervention = mesh_lookup(data.results[i].intervention_browse.mesh_term[0]);
+        } catch(err) {
+            var intervention = "N/A";
+        }
+        try {
+            var condition = mesh_lookup(data.results[i].condition_browse.mesh_term[0]);
+        } catch(err) {
+            var condition = "N/A"
+        }
+        try {
+            var gender = data.results[i].eligibility.gender;
+        } catch(err) {
+            var gender = 'N/A'
+        }
+        try {
+            var lead_agency_type = data.results[i].sponsors.lead_sponsor.agency_class;
+        } catch(err) {
+            var lead_agency_type = 'N/A'
+        }
+
+        delete data.results[i].sponsors
+        delete data.results[i].eligibility
+
+        var rid =  data.results[i].id
+        data.results[i].id = "<a target='trial_detail' href='http://clinicaltrials.gov/ct2/show/" + rid + "'>" + rid + "</a>";
+        data.results[i].intervention = intervention;
+        data.results[i].condition = condition;
+        data.results[i].gender = gender;
+        data.results[i].lead_agency_type = lead_agency_type;
+        data.results[i].why_stopped = stopped_data[rid] ? stopped_data[rid]: "N/A";
+    }
+    search_results_count = data.resultCount;
+    $("#search_count").html(search_results_count + " results");
+    parset_data = data.results;
+    vis.datum(parset_data).call(chart);
+    reset_paths();
 
 }
 
 function load_results() {
-    console.log(data_url)
-    $.get(data_url,
-        function (data) {
-            for(var i=0;i<data.results.length;i++) {
-                try {
-                    var intervention = mesh_lookup(data.results[i].intervention_browse.mesh_term[0]);
-                } catch(err) {
-                    var intervention = "N/A";
-                }
-                try {
-                    var condition = mesh_lookup(data.results[i].condition_browse.mesh_term[0]);
-                } catch(err) {
-                    var condition = "N/A"
-                }
-                try {
-                    var eligibility_gender = data.results[i].eligibility.gender;
-                } catch(err) {
-                    var eligibility_gender = 'N/A'
-                }
+    vis.datum(parset_data).call(chart);
+    reset_paths();
+}
 
-                data.results[i].intervention = intervention;
-                data.results[i].condition = condition;
-                data.results[i].eligibility_gender = eligibility_gender;
-            }
-
-            parset_data = data.results;
-            vis.datum(parset_data).call(chart);
-            vis.selectAll("path").on("click", function (d, i) {
-                display_subset(d, i)
-            });
-            vis.selectAll("g.category").on("click", function (d, i) {
-                    display_category(d, i)
-            });
-        }, 'jsonp');
+function reset_paths() {
+    vis.selectAll("path").on("click", function (d, i) {
+        display_subset(d, i)
+    });
+    vis.selectAll("g.category").on("click", function (d, i) {
+        display_category(d, i)
+    });
 }
 
 function search_ctgov() {
-    var new_search = $("#search_input").val();
-    data_query = "&query=show_xprt:Y,xprt:" + new_search + "+%5BALL-FIELDS%5D,count:999999";
+    current_term = $("#search_input").val();
+    current_search = current_term + " [ALL-FIELDS]";
+    data_query = "&query=count:999999,show_xprt:Y,xprt:" + current_search;
     data_url = base_url + data_fields + data_query;
-    table_url = base_url + table_fields + data_query;
-
-    load_results();
-    data_table.fnReloadAjax(table_url);
+    data_table.fnReloadAjax(data_url);
 }
 
 function curves() {
